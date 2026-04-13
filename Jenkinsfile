@@ -1,5 +1,11 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'python:3.11-slim'
+            args '-u root'
+        }
+    }
+
 
     environment {
         VENV = 'venv'
@@ -15,7 +21,8 @@ pipeline {
         stage('Setup Python Environment') {
             steps {
                 sh '''
-                python -m venv $VENV
+                python3 --version
+                python3 -m venv $VENV
                 . $VENV/bin/activate
                 pip install --upgrade pip
                 pip install -r requirements.txt
@@ -36,6 +43,7 @@ pipeline {
             steps {
                 sh '''
                 . $VENV/bin/activate
+                pytest --alluredir=allure-results
                 allure generate allure-results -o allure-report --clean
                 '''
             }
