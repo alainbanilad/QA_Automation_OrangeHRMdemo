@@ -34,7 +34,7 @@ pipeline {
             steps {
                 sh '''
                 . $VENV/bin/activate
-                pytest --html=report.html --self-contained-html
+                pytest -m "smoke and orangehrm" --html=report.html --self-contained-html
                 '''
             }
         }
@@ -43,7 +43,7 @@ pipeline {
             steps {
                 sh '''
                 . $VENV/bin/activate
-                pytest --alluredir=allure-results
+                pytest -m "smoke and orangehrm" --alluredir=allure-results
                 allure generate allure-results -o allure-report --clean
                 '''
             }
@@ -52,16 +52,14 @@ pipeline {
 
     post {
         always {
-            archiveArtifacts artifacts: 'report.html', fingerprint: true
-            archiveArtifacts artifacts: 'allure-report/**', fingerprint: true
+            archiveArtifacts artifacts: 'report.html', onlyIfSuccessful: false
         }
-
         failure {
             echo '❌ Tests failed'
         }
-
         success {
             echo '✅ Tests passed'
         }
     }
+
 }
