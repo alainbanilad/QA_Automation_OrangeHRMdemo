@@ -33,8 +33,18 @@ On failure, the framework MUST capture enough evidence to debug quickly, includi
 - Pull requests MUST pass the configured automated smoke tests before merge.
 - Flaky tests MUST be fixed or temporarily quarantined with a tracking item.
 
+## Minimum CI/CD QA Pipeline Requirements
+
+- CI MUST trigger on every pull request and on pushes to the default branch.
+- The pipeline MUST install project dependencies from `requirements.txt` in a clean environment.
+- The pipeline MUST run at least the OrangeHRM smoke suite (valid login, invalid login, logout).
+- A test failure MUST fail the pipeline job and block merge until resolved or explicitly exempted.
+- The pipeline MUST publish test artifacts for failed runs, at minimum: pytest output and screenshots (and Allure results when available).
+- Secrets used by tests (for example credentials) MUST be provided by CI secret storage and MUST NOT be hardcoded.
+- The default-branch pipeline SHOULD execute the full regression suite at least once daily.
+
 ## Governance
 
 This constitution defines the minimum automated testing standard for this repository. All pull requests and reviews MUST check compliance. Exceptions require written justification in the pull request.
 
-**Version**: 1.0.0 | **Ratified**: 2026-04-30 | **Last Amended**: 2026-04-30
+**Version**: 1.1.0 | **Ratified**: 2026-04-30 | **Last Amended**: 2026-05-01
