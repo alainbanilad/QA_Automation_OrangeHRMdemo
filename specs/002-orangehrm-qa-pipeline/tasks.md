@@ -67,7 +67,7 @@
 
 **Independent Test**: Ask a new contributor to locate (a) where to change smoke scope, (b) where to adjust the daily schedule, and (c) how credentials are referenced — all using only `Jenkinsfile` inline comments and `quickstart.md`.
 
-- [X] T011 [US3] Add a `Regression` stage to `Jenkinsfile` that runs `pytest -m regression` (or the full suite) with an explicit `timeout(time: 30, unit: 'MINUTES')` wrapper — keep it structurally separate from the smoke stage
+- [X] T011 [US3] Add a `Regression` stage to `Jenkinsfile` that runs `pytest -m "orangehrm or regression"` with an explicit `timeout(time: 30, unit: 'MINUTES')` wrapper — keep it structurally separate from the smoke stage
 - [X] T012 [US3] Add a `triggers { cron('H 2 * * *') }` block to `Jenkinsfile` for daily scheduled regression; scope the regression stage to run only on scheduled or default-branch builds using a `when` condition
 - [X] T013 [US3] Add maintainer-facing inline comments to `Jenkinsfile` at: (a) the smoke marker selector line, (b) the cron schedule line, (c) each credential ID — format as `// MAINTAINER: <instruction>` for easy grep
 - [X] T014 [P] [US3] Update `specs/002-orangehrm-qa-pipeline/quickstart.md` section 4 (Scope Selection Guidance) to reference the exact `Jenkinsfile` line location and marker name for smoke; add section 9 with credential ID naming convention
@@ -80,6 +80,34 @@
 
 - [X] T015 [P] Verify no plaintext credentials or tokens exist in any committed file by running `git grep -i 'password\|secret\|token' -- '*.py' '*.ini' 'Jenkinsfile'` and confirming zero matches on literal values
 - [X] T016 Run the `quickstart.md` section 8 validation scenario end-to-end: smoke-pass gate, smoke-fail gate block, and artifact review from a build page
+
+---
+
+## Analysis Remediation Phase: Gap Coverage
+
+**Purpose**: Close gaps identified by `/speckit.analyze` — branch-protection docs, API key support, regression-marker alignment, smoke timing, and preflight checks.
+
+- [X] T017 [US1] Document Jenkins required-status-check setup for FR-005 (branch protection): add section 10 to `quickstart.md` with step-by-step GitHub → Settings → Branches → Add required status check instructions referencing the Jenkins job name
+- [X] T018 [P] [US3] Add a note to `quickstart.md` prerequisites (section 1) about the Jenkins GitHub Branch Source / Multibranch Pipeline plugin requirement needed for `changeRequest()` PR detection (resolves A1 ambiguity)
+- [X] T019 [US1] Add `SECONDS=0` / `echo "Smoke suite completed in ${SECONDS}s"` to `Smoke Tests` stage in `Jenkinsfile` so SC-002 (smoke under 10 min / 600s) can be tracked from build logs
+- [X] T020 [US3] Add `pip check` after `pip install` in the `Setup Python Environment` stage of `Jenkinsfile` to satisfy FR-012 (dependency preflight with clear errors) — resolves U2 underspecification
+- [X] T021 [US3] Align regression marker: update `Jenkinsfile` Regression stage to `-m "orangehrm or regression"` and update MAINTAINER comment so `@pytest.mark.regression` tests are actually collected — resolves I1 mismatch between T011 description and prior implementation
+
+---
+
+## CI Agent Hardening Phase: Docker Image & Build Reliability
+
+**Purpose**: Close three verified gaps that would cause all Jenkins builds to fail with the previous `python:3.11-slim` agent: missing Chrome for Selenium, missing Allure CLI for report generation, and inaccurate smoke timing due to bash-only `SECONDS` builtin not working under `dash` (`/bin/sh` on Debian slim).
+
+- [X] T022 Create `Dockerfile.jenkins` extending `python:3.11-slim` with Google Chrome stable, OpenJDK 17 JRE, and Allure CLI 2.30.0 — these three tools are absent from the base image and required for the pipeline to run end-to-end
+- [X] T023 Update `Jenkinsfile` agent block from `docker { image 'python:3.11-slim' }` to `dockerfile { filename 'Dockerfile.jenkins' }` so the pipeline uses the hardened image
+- [X] T024 Fix smoke timing in `Jenkinsfile`: replace `SECONDS=0` / `${SECONDS}` (bash-only builtin, silently outputs 0 under `/bin/sh`) with POSIX-compatible `SMOKE_START=$(date +%s)` / `SMOKE_ELAPSED=$(( $(date +%s) - SMOKE_START ))` arithmetic
+- [X] T025 [P] Fix `conftest.py` Chrome options: replace `--start-maximized` (no-op in headless mode) with `--window-size=1920,1080` and add `--disable-gpu` for Docker container compatibility
+- [X] T026 [P] Update `.env.example` to document `REQRES_API_KEY` optional variable with a hint to app.reqres.in, and populate the OrangeHRM demo public values so new contributors can run immediately
+
+**Checkpoint**: `Dockerfile.jenkins` builds successfully; full test suite (6 passed, 1 skipped) confirmed green after all changes; Allure report generated without CLI errors in CI.
+
+**Checkpoint**: All CRITICAL and HIGH analysis findings resolved; coverage reaches ≥ 94 %.
 
 ---
 

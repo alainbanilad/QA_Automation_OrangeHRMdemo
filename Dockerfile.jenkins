@@ -1,0 +1,61 @@
+# Dockerfile.jenkins
+# ──────────────────────────────────────────────────────────────────────────────
+# Purpose: Jenkins build agent image for the OrangeHRM QA pipeline.
+#
+# What this image adds on top of python:3.11-slim:
+#   1. Google Chrome stable   — required for Selenium headless UI tests
+#   2. OpenJDK 17 JRE         — required to run the Allure CLI
+#   3. Allure CLI 2.30.0      — generates Allure HTML reports from allure-results/
+#
+# Usage in Jenkinsfile:
+#   agent { dockerfile { filename 'Dockerfile.jenkins'; args '-u root' } }
+#
+# MAINTAINER: If you bump the Allure CLI version, update ALLURE_VERSION below
+#             and rebuild the image (Jenkins will rebuild automatically on the
+#             next build if the Dockerfile changes).
+# ──────────────────────────────────────────────────────────────────────────────
+
+FROM python:3.11-slim
+
+ARG ALLURE_VERSION=2.30.0
+
+# ── System dependencies ───────────────────────────────────────────────────────
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        wget \
+        gnupg \
+        ca-certificates \
+        apt-transport-https \
+        default-jre-headless \
+        fonts-liberation \
+        libvulkan1 \
+        libglib2.0-0 \
+        libnss3 \
+        libatk-bridge2.0-0 \
+        libx11-xcb1 \
+        libxcomposite1 \
+        libxdamage1 \
+        libxrandr2 \
+        libgbm1 \
+        libasound2 \
+    && rm -rf /var/lib/apt/lists/*
+
+# ── Google Chrome stable ──────────────────────────────────────────────────────
+RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub \
+        | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg \
+    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] \
+        http://dl.google.com/linux/chrome/deb/ stable main" \
+        > /etc/apt/sources.list.d/google-chrome.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends google-chrome-stable \
+    && rm -rf /var/lib/apt/lists/* \
+    && google-chrome --version
+
+# ── Allure CLI ────────────────────────────────────────────────────────────────
+RUN wget -q "https://github.com/allure-framework/allure2/releases/download/${ALLURE_VERSION}/allure-${ALLURE_VERSION}.tgz" \
+    && tar -xzf "allure-${ALLURE_VERSION}.tgz" -C /opt \
+    && ln -s "/opt/allure-${ALLURE_VERSION}/bin/allure" /usr/local/bin/allure \
+    && rm "allure-${ALLURE_VERSION}.tgz" \
+    && allure --version
+
+# ── Verify tools ──────────────────────────────────────────────────────────────
+RUN python3 --version && java -version && google-chrome --version && allure --version
