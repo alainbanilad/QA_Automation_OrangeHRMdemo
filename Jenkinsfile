@@ -1,15 +1,25 @@
 pipeline {
     agent {
-        docker {
-            image 'python:3.11-slim'
+        // MAINTAINER: Dockerfile.jenkins builds a python:3.11-slim image extended with
+        //   Google Chrome, OpenJDK 17, and the Allure CLI.
+        //   Jenkins rebuilds the image automatically whenever Dockerfile.jenkins changes.
+        //   Requires the Docker Pipeline plugin and Docker daemon on the Jenkins agent.
+        dockerfile {
+            filename 'Dockerfile.jenkins'
             args '-u root'
         }
     }
 
-    // PR builds fire automatically via Jenkins multibranch webhook / GitHub Branch Source plugin.
-    // The cron entry below triggers the daily regression run on the default branch.
-    // MAINTAINER: Adjust the schedule here. 'H 2 * * *' = daily at ~2 AM agent time.
+    // pollSCM checks the repository for new commits on a schedule.
+    // This is used instead of a GitHub webhook because Jenkins is running locally
+    // (http://localhost:8080) and is not reachable from the internet.
+    // MAINTAINER: 'H/5 * * * *' = poll every 5 minutes. Increase the interval
+    //   (e.g. 'H/15 * * * *') to reduce GitHub API calls on a slow machine.
+    //   If you later expose Jenkins publicly, replace pollSCM with a webhook
+    //   and remove this block.
+    // MAINTAINER: 'H 2 * * *' = daily at ~2 AM agent time — triggers regression stage.
     triggers {
+        pollSCM('H/5 * * * *')
         cron('H 2 * * *')
     }
 
@@ -40,6 +50,9 @@ pipeline {
                     . $VENV/bin/activate
                     pip install --upgrade pip
                     pip install -r requirements.txt
+                    # FR-012: Verify installed packages have no dependency conflicts.
+                    pip check
+                    echo "Dependency preflight check passed"
                 '''
             }
         }
@@ -49,6 +62,10 @@ pipeline {
                 sh '''
                     set -e
                     . $VENV/bin/activate
+                    # SC-002: Track smoke suite wall-clock time (target: under 600s).
+                    # Using POSIX date +%s arithmetic (bash SECONDS builtin is not
+                    # available under /bin/sh on Debian slim).
+                    SMOKE_START=$(date +%s)
                     # MAINTAINER: Smoke scope is controlled by the -m marker expression below.
                     # To change which tests count as smoke, update @pytest.mark.smoke in the
                     # test files, or adjust the expression here. Change one side only.
@@ -56,6 +73,8 @@ pipeline {
                         --html=report.html \
                         --self-contained-html \
                         --alluredir=allure-results
+                    SMOKE_ELAPSED=$(( $(date +%s) - SMOKE_START ))
+                    echo "Smoke suite completed in ${SMOKE_ELAPSED}s (SC-002 target: under 600s)"
                 '''
             }
         }
@@ -77,10 +96,11 @@ pipeline {
                     sh '''
                         set -e
                         . $VENV/bin/activate
-                        # MAINTAINER: Regression scope runs all OrangeHRM tests.
-                        # Add @pytest.mark.regression to any test to include it in regression-only runs,
-                        # or widen/narrow the -m expression here to change coverage.
-                        pytest -m "orangehrm" \
+                        # MAINTAINER: Regression scope = all OrangeHRM tests plus any regression-only tests.
+                        # Add @pytest.mark.orangehrm to include a test here.
+                        # Add @pytest.mark.regression (without orangehrm) for regression-only tests.
+                        # Widen/narrow the -m expression here to change coverage.
+                        pytest -m "orangehrm or regression" \
                             --html=report.html \
                             --self-contained-html \
                             --alluredir=allure-results

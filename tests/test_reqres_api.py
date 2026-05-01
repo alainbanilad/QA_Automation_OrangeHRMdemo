@@ -1,4 +1,14 @@
+import os
+
+import pytest
+
 from api.reqres_api import ReqResAPI
+
+pytestmark = pytest.mark.skipif(
+    not os.getenv("REQRES_API_KEY"),
+    reason="REQRES_API_KEY env var not set — get a free key at app.reqres.in",
+)
+
 
 def test_create_and_verify_user():
     api = ReqResAPI()

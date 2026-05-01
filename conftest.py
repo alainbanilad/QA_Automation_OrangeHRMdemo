@@ -44,9 +44,8 @@ def driver():
     options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
-
-    # Optional: keep this for local debugging
-    options.add_argument("--start-maximized")
+    options.add_argument("--disable-gpu")           # required on some Linux/Docker envs
+    options.add_argument("--window-size=1920,1080")  # explicit viewport; --start-maximized is a no-op in headless
 
     driver = webdriver.Chrome(
         service=Service(ChromeDriverManager().install()),

@@ -1,8 +1,11 @@
+import os
 from api.base_api import BaseAPI
 
 class ReqResAPI(BaseAPI):
     def __init__(self):
-        super().__init__("https://reqres.in")
+        api_key = os.getenv("REQRES_API_KEY", "")
+        headers = {"x-api-key": api_key} if api_key else {}
+        super().__init__("https://reqres.in", headers=headers)
 
     def create_user(self, name, job):
         payload = {
